@@ -98,11 +98,15 @@ class Constants:
     LAYER_OP_W = LayerOperand("W")
     OUTPUT_LAYER_OP = LayerOperand("O")
     FINAL_OUTPUT_LAYER_OP = LayerOperand("O_final")
+    PSUM_HIDDEN_LAYER_OP = LayerOperand("H_psum")
+    HIDDEN_LAYER_OP = LayerOperand("H")
 
     MEM_OP_1 = MemoryOperand("I1")
     MEM_OP_2 = MemoryOperand("I2")
     OUTPUT_MEM_OP = MemoryOperand("O")
     FINAL_OUTPUT_MEM_OP = MemoryOperand("O_final")
+    PSUM_HIDDEN_MEM_OP = MemoryOperand("H_psum")
+    HIDDEN_MEM_OP = MemoryOperand("H")
 
     UNKNOWN_DIM_OPERATOR = LayerDim("*")
 
