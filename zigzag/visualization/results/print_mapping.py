@@ -43,8 +43,10 @@ def print_mapping(cme: CostModelEvaluationABC, offsets: int = 2):
             f"{' ' * indent}{loop_str} {loop_var} in [{loop_range[0]}, {loop_range[1]}):".ljust(loop_column_width),
             end="",
         )
-        print(f"{memory[0]:<{memory_column_width}}{memory[1]:<{memory_column_width}}{memory[2]:<{memory_column_width}}")
-        print("".ljust(loop_column_width + 3 * memory_column_width, "-"))
+        for mem in memory:
+            print(f"{mem:<{memory_column_width}}", end="")
+        print()
+        print("".ljust(loop_column_width + len(operands) * memory_column_width, "-"))
 
     def recursive_print(
         loops: list[tuple[LayerDim, tuple[int, UnrollFactor], tuple[str, ...]]],
@@ -66,14 +68,13 @@ def print_mapping(cme: CostModelEvaluationABC, offsets: int = 2):
         return new_offset
 
     def print_header(text: str, operands: list[str]):
-        assert len(operands) == 3, "Three operands are expected"
-        print("".ljust(loop_column_width + 3 * memory_column_width, "="))
+        # assert len(operands) == 3, "Three operands are expected"
+        print("".ljust(loop_column_width + len(operands) * memory_column_width, "="))
         print(f"{text.ljust(loop_column_width)}", end="")
-        print(
-            f"{operands[0]:<{memory_column_width}}{operands[1]:<{memory_column_width}}"
-            f"{operands[2]:<{memory_column_width}}"
-        )
-        print("".ljust(loop_column_width + 3 * memory_column_width, "="))
+        for op in operands:
+            print(f"{op:<{memory_column_width}}", end="")
+        print()
+        print("".ljust(loop_column_width + len(operands) * memory_column_width, "="))
 
     print(f"Loop ordering for {cme.layer.name}")
     # Print Temporal loops header
