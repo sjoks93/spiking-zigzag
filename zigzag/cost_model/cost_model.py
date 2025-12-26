@@ -340,7 +340,6 @@ class CostModelEvaluation(CostModelEvaluationABC):
         self.mem_size_dict = accelerator.mem_size_dict
         self.mem_sharing_tuple = tuple(tuple(i.items()) for i in accelerator.mem_sharing_list)
         self.memory_operand_links = layer.memory_operand_links
-
         self.cumulative_layer_ids: list[int] = []  # In case the CME results from adding other CMEs together
 
         # generate the integer spatial mapping from fractional spatial mapping (due to greedy mapping support).
@@ -815,6 +814,8 @@ class CostModelEvaluation(CostModelEvaluationABC):
         min_required_cycles: list[float] = []
         total_required_cycles: list[float] = []
         for mem_op, mem_lv, mov_dir in mem_op_level_direction_combs:
+            if not self.memory_operand_links.contains_mem_op(mem_op):
+                continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
             minimal_bits = self.mapping_int.data_bit_per_level_unrolled[layer_op][1]
             minimal_cycles_op = ceil(minimal_bits / port.bw_max)
@@ -840,7 +841,12 @@ class CostModelEvaluation(CostModelEvaluationABC):
         for (mem_op, mem_lv, mov_dir), remainder, reduction in zip(
             mem_op_level_direction_combs, remaining_loading_cycles, reductions
         ):
+            if not self.memory_operand_links.contains_mem_op(mem_op):
+                continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
+            if self.layer.hidden_operand is not None and layer_op == self.layer.hidden_operand:
+                # To-do: on/off loading behavior for hidden operand
+                continue
             data_loaded = remainder * port.bw_max
             port_activity = PortBeginOrEndActivity(
                 remainder,
@@ -883,7 +889,12 @@ class CostModelEvaluation(CostModelEvaluationABC):
         """! Calculate the loading and offloading activities with mem port movement directions period > 1."""
         port_activities: list[PortBeginOrEndActivity] = []
         for mem_op, mem_lv, mov_dir in mem_op_level_direction_combs:
+            if not self.memory_operand_links.contains_mem_op(mem_op):
+                continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
+            if self.layer.hidden_operand is not None and layer_op == self.layer.hidden_operand:
+                # To-do: on/off loading behavior for hidden operand
+                continue
             umdm = self.mapping_int.unit_mem_data_movement[layer_op][mem_lv]
             period_count = umdm.get_attribute(DataMoveAttr.DATA_TRANS_PERIOD_COUNT).get(mov_dir)
             # skip for the inactive data movement
@@ -935,6 +946,8 @@ class CostModelEvaluation(CostModelEvaluationABC):
                 mov_dir == DataDirection.RD_OUT_TO_LOW or mov_dir == DataDirection.WR_IN_BY_HIGH
             ):
                 continue
+            if not self.memory_operand_links.contains_mem_op(mem_op):
+                continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
             umdm = unit_mem_data_movement[layer_op][mem_lv]
             period_count = umdm.get_attribute(DataMoveAttr.DATA_TRANS_PERIOD_COUNT).get(mov_dir)
@@ -948,6 +961,8 @@ class CostModelEvaluation(CostModelEvaluationABC):
         # This is the sum of all bandwidths for the operand - movement directions that have > 1 period
         total_req_bw_aver_computation = 0
         for mem_op, mem_lv, mov_dir in combs_period_count_greater_than_1:
+            if not self.memory_operand_links.contains_mem_op(mem_op):
+                continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
             umdm = unit_mem_data_movement[layer_op][mem_lv]
             req_bw_aver = ceil(umdm.get_attribute(DataMoveAttr.REQ_MEM_BW_AVER).get(mov_dir) / self.cycles_per_op)
@@ -1130,6 +1145,8 @@ class CostModelEvaluation(CostModelEvaluationABC):
         memory_level_index = memory_levels.index(memory_level)
         # Obtain the required instantaneous bandwidth to/from the memory for its operands during computation
         inst_bw = FourWayDataMoving({data_dir: 0 for data_dir in DataDirection})
+        if not self.memory_operand_links.contains_mem_op(memory_operand):
+            return inst_bw
         layer_op = self.memory_operand_links.mem_to_layer_op(memory_operand)
         umdm = self.mapping_int.unit_mem_data_movement[layer_op][memory_level_index]
         req_bw_4way = umdm.get_attribute(DataMoveAttr.REQ_MEM_BW_INST)
