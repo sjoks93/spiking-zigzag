@@ -63,7 +63,7 @@ memories:
     w_cost: 378.4
     area: 0
     latency: 1
-    operands: [I1, O]
+    operands: [I1, O, H]
     ports:
       - fh: w_port_1
         tl: r_port_1
@@ -80,6 +80,8 @@ memories:
           - I1, tl
           - O, tl
           - O, th
+          - H, tl
+          - H, th
       - name: w_port_1
         type: write
         bandwidth_min: 64
@@ -88,6 +90,8 @@ memories:
           - I1, fh
           - O, fh
           - O, fl
+          - H, fh
+          - H, fl
     served_dimensions: [D1, D2]
 
   dram:
@@ -96,7 +100,7 @@ memories:
     w_cost: 750
     area: 0
     latency: 1
-    operands: [I1, I2, O]
+    operands: [I1, I2, O, H]
     ports:
       - name: rw_port_1
         type: read_write
@@ -111,6 +115,10 @@ memories:
           - O, tl
           - O, fl
           - O, th
+          - H, fh
+          - H, tl
+          - H, fl
+          - H, th
     served_dimensions: [D1, D2]
 
 operational_array:
