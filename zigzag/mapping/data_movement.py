@@ -94,21 +94,21 @@ class DataMovePattern:
         self.name = operand.name + str(mem_level)
 
         # Use a dictionary to store all attributes as FourWayDataMoving instances
-        self.attributes: dict[DataMoveAttr, FourWayDataMoving[int]] = {
+        self.attributes: dict[DataMoveAttr, FourWayDataMoving[float]] = {
             attr: FourWayDataMoving() for attr in DataMoveAttr
         }
 
-    def set_attribute(self, attr: DataMoveAttr, values: dict[DataDirection, int]):
+    def set_attribute(self, attr: DataMoveAttr, values: dict[DataDirection, float]):
         """Set a given attribute using a dictionary of DataDirection values."""
         if attr not in DataMoveAttr:
             raise ValueError(f"Invalid attribute name: {attr}")
         self.attributes[attr] = FourWayDataMoving(values)
 
-    def get_attribute(self, attr: DataMoveAttr) -> FourWayDataMoving[int]:
+    def get_attribute(self, attr: DataMoveAttr) -> FourWayDataMoving[float]:
         """Retrieve a specific attribute."""
         return self.attributes[attr]
 
-    def update_single_dir_data(self, direction: DataDirection, new_value: int):
+    def update_single_dir_data(self, direction: DataDirection, new_value: float):
         """Update a single direction value across all attributes."""
         for attr in self.attributes.values():
             attr.set(direction, new_value)
