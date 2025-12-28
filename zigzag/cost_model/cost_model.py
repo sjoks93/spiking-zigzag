@@ -211,7 +211,8 @@ class CostModelEvaluationABC(metaclass=ABCMeta):
             {
                 "outputs": {
                     "memory": {
-                        "utilization": (self.mem_utili_shared if isinstance(self, CostModelEvaluation) else None),
+                        "utilization_shared": (self.mem_utili_shared if isinstance(self, CostModelEvaluation) else None),
+                        "utilization_individual": (self.mem_utili_individual if isinstance(self, CostModelEvaluation) else None),
                         "word_accesses": self.memory_word_access,
                     },
                     "energy": {
@@ -505,9 +506,9 @@ class CostModelEvaluation(CostModelEvaluationABC):
                     else:
                         assert max_bw and min_bw, f"Memory bandwidth not defined for {mem_level} {mem_op} {data_dir}"
                         memory_accesses[data_dir] = self._calc_memory_access(
-                            amount,
-                            precision,
-                            period_count,
+                            int(amount),
+                            int(precision),
+                            int(period_count),
                             max_bw,
                             min_bw,
                             layer_op,
