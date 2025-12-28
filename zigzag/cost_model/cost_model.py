@@ -845,8 +845,8 @@ class CostModelEvaluation(CostModelEvaluationABC):
             if not self.memory_operand_links.contains_mem_op(mem_op):
                 continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
-            if self.layer.hidden_operand is not None and layer_op == self.layer.hidden_operand:
-                # To-do: on/off loading behavior for hidden operand
+            if self.layer.is_hidden and layer_op == Constants.HIDDEN_LAYER_OP:
+                # Hidden operand ignored for on/off loading behavior
                 continue
             data_loaded = remainder * port.bw_max
             port_activity = PortBeginOrEndActivity(
@@ -893,8 +893,8 @@ class CostModelEvaluation(CostModelEvaluationABC):
             if not self.memory_operand_links.contains_mem_op(mem_op):
                 continue
             layer_op = self.memory_operand_links.mem_to_layer_op(mem_op)
-            if self.layer.hidden_operand is not None and layer_op == self.layer.hidden_operand:
-                # To-do: on/off loading behavior for hidden operand
+            if self.layer.is_hidden and layer_op == Constants.HIDDEN_LAYER_OP:
+                # Hidden operand ignored for on/off loading behavior
                 continue
             umdm = self.mapping_int.unit_mem_data_movement[layer_op][mem_lv]
             period_count = umdm.get_attribute(DataMoveAttr.DATA_TRANS_PERIOD_COUNT).get(mov_dir)
