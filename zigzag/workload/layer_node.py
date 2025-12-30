@@ -188,7 +188,7 @@ class LayerNode(LayerNodeABC):
         self.padding = node_attr.padding
         self.constant_operands = node_attr.constant_operands
         self.is_hidden = node_attr.is_hidden
-        self.generate_ls_skip(node_attr.hidden_mode)
+        self.set_hidden_mode(node_attr.hidden_mode)
         self.sequence_dim = node_attr.sequence_dim
         self.input_operand_source = node_attr.input_operand_source
         pr_layer_dim_sizes = node_attr.pr_layer_dim_sizes
@@ -232,7 +232,8 @@ class LayerNode(LayerNodeABC):
         self.operand_size_elem: dict[LayerOperand, UnrollFactor] = dict()
         self.extract_layer_info()
 
-    def generate_ls_skip(self, hidden_mode: int):
+    def set_hidden_mode(self, hidden_mode: int):
+            self.hidden_mode = hidden_mode
             if hidden_mode == Constants.HIDDEN_LOAD_STORE_MODE:
                 self.skip_load = 0
                 self.skip_store = 0
@@ -251,7 +252,6 @@ class LayerNode(LayerNodeABC):
                 self.store_top = False
             else:
                 raise ValueError(f"Unknown hidden mode: {hidden_mode}")
-            print(f"Layer {self.name} hidden mode: skip_load={self.skip_load}, skip_store={self.skip_store}, store_top={self.store_top}")
 
     def get_act_layer_op(self) -> LayerOperand:
         """Return the `I` LayerOperand: either the non-constant operand or one of the input operands if none are
