@@ -101,7 +101,11 @@ class LoopRelevancyInfo:
 
             pr_loop_remove_flag = any(layer_dim in pr_loop for layer_dim in r_loop_list)
             if pr_loop_remove_flag:
-                self.r_dims[layer_op] = [layer_dim for layer_dim in r_loop_list if layer_dim not in pr_loop_list]
+                self.r_dims[layer_op] = [
+                    layer_dim
+                    for layer_dim in r_loop_list
+                    if layer_dim not in pr_loop_list and layer_dim_sizes[layer_dim] != 1
+                ]                    
                 self.ir_dims[layer_op] = [
                     layer_dim
                     for layer_dim in ir_loop_list
@@ -219,8 +223,10 @@ class LayerNode(LayerNodeABC):
             h_loop_relevancy_r = self.loop_relevancy_info.get_r_layer_dims(self.output_operand).copy()
             if self.sequence_dim in h_loop_relevancy_r:
                 h_loop_relevancy_r.remove(self.sequence_dim)
+                self.loop_relevancy_info.ir_dims[operand] = [self.sequence_dim]
+            else:
+                self.loop_relevancy_info.ir_dims[operand] = []
             self.loop_relevancy_info.r_dims[operand] = h_loop_relevancy_r
-            self.loop_relevancy_info.ir_dims[operand] = [self.sequence_dim]
             self.loop_relevancy_info.pr_dims[operand] = {}
             self.layer_operands.append(operand)
 
