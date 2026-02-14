@@ -19,6 +19,8 @@ class TemporalMappingType(StrEnum):
 class TemporalMapping:
     """! Class that collect all the info related to temporal mapping."""
 
+    SKIP_STATIONARITY_MERGE_DOWN = False
+
     def __init__(
         self, temporal_mapping_dict: TemporalMappingDict, layer_node: LayerNode, mapping_type: TemporalMappingType
     ):
@@ -63,8 +65,21 @@ class TemporalMapping:
         # Initialization
         mapping_current: TemporalMappingDict = pickle_deepcopy(self.mapping_dic_origin)
         mapping_previous: TemporalMappingDict = pickle_deepcopy(self.mapping_dic_origin)
-        done = False
 
+        if self.type == TemporalMappingType.EVEN and self.SKIP_STATIONARITY_MERGE_DOWN:
+            # Skip the merging process, only calculate the mac level data stationary cycle
+            mac_level_st: dict[LayerOperand, UnrollFactor] = {op: 1 for op in self.operand_list}
+            for operand in self.mem_level.keys():
+                for level, current_level_loops in enumerate(mapping_previous[operand]):
+                    for loop_type, loop_dim in current_level_loops:
+                        if loop_type in self.layer_node.loop_relevancy_info.get_ir_layer_dims(operand):
+                            if level == 0:
+                                mac_level_st[operand] *= loop_dim
+            self.mapping_dic_stationary = mapping_previous  # type: ignore
+            self.mac_level_data_stationary_cycle = mac_level_st  # type: ignore
+            return
+
+        done = False
         while not done:
             mapping_st: TemporalMappingDict = {op: [[] for _ in range(self.mem_level[op])] for op in self.operand_list}
             mac_level_st: dict[LayerOperand, UnrollFactor] = {op: 1 for op in self.operand_list}

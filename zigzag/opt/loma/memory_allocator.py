@@ -111,7 +111,10 @@ class MemoryAllocator:
         mem_capacity = node.memory_instance.size
 
         # For all the mem_ops, find the max amount of unallocated loops we could allocate
-        all_sizes = {mem_op: self.calc_size_slices(mem_op, mem_capacity) for mem_op in filtered_mem_ops}
+        all_sizes = {
+            mem_op: self.calc_size_slices(mem_op, mem_capacity, node.memory_instance.force_double_buffering)
+            for mem_op in filtered_mem_ops
+        }
 
         # Now that we have this for all the mem_ops, call function that finds the best
         # combination of loops to minimize the number of accesses to the level above
@@ -319,12 +322,21 @@ class MemoryAllocator:
 
     def is_valid_idx_combination_for_even_mapping_type(self, idx_comb: list[int], mem_ops: list[MemoryOperand]):
         """! Check if the idx_comb is a valid combination for the EVEN mapping type."""
+        already_allocated_loops = {
+            mem_op: [loop for loop in self.allocated[mem_op] if loop.loop_type == "temporal"] for mem_op in mem_ops
+        }
+        loop_idx_offsets = {mem_op: len(already_allocated_loops[mem_op]) for mem_op in mem_ops}
+
         to_be_allocated_loops = [
-            loop for mem_op, idx in zip(mem_ops, idx_comb) for loop in self.unallocated[mem_op][idx:]
+            (i + loop_idx_offsets[mem_op], loop)
+            for mem_op, idx in zip(mem_ops, idx_comb)
+            for i, loop in enumerate(self.unallocated[mem_op][:idx])
         ]
         to_remain_unallocated_loops = [
-            loop for mem_op, idx in zip(mem_ops, idx_comb) for loop in self.unallocated[mem_op][:idx]
+            (i + loop_idx_offsets[mem_op], loop)
+            for mem_op, idx in zip(mem_ops, idx_comb)
+            for i, loop in enumerate(self.unallocated[mem_op][idx:], start=idx)
         ]
-        if any([loop in to_remain_unallocated_loops for loop in to_be_allocated_loops]):
+        if any([loop_and_idx in to_remain_unallocated_loops for loop_and_idx in to_be_allocated_loops]):
             return False
         return True

@@ -32,7 +32,9 @@ class AcceleratorParserStage(Stage):
         accelerator_data = validator.normalized_data
         validate_success = validator.validate()
         if not validate_success:
-            raise ValueError("Failed to validate user provided accelerator.")
+            raise ValueError(
+                f"Failed to validate provided accelerator {accelerator_yaml_path}: {validator.validator.errors}"  # type: ignore
+            )
 
         factory = AcceleratorFactory(accelerator_data)
         return factory.create()

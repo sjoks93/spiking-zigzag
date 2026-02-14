@@ -76,7 +76,7 @@ def print_mapping(cme: CostModelEvaluationABC, offsets: int = 2):
         print()
         print("".ljust(loop_column_width + len(operands) * memory_column_width, "="))
 
-    print(f"Loop ordering for {cme.layer.name}")
+    print(f"Loop ordering for {cme.layer.name}; {cme.layer.equation}")
     # Print Temporal loops header
     operands = list(map(lambda x: x.name, cme.layer.memory_operand_links.layer_operands))
     print_header("Temporal Loops", operands)
