@@ -422,17 +422,34 @@ class CostModelEvaluation(CostModelEvaluationABC):
                 max_period = values["P"]
                 max_period_operand = op
 
-        indicators: ArrayType = np.zeros((len(input_dict), max_period))
+        # Use LCM of all periods so the indicator array is reshapeable by every operand's period.
+        # The original code used max_period which only works when all periods divide max_period.
+        from math import lcm
+        lcm_period = 1
+        for values in input_dict.values():
+            lcm_period = lcm(lcm_period, values["P"])
+
+        # Guard against LCM explosion: if the array would be too large, fall back to a conservative estimate
+        array_size = len(input_dict) * lcm_period
+        if array_size > 10_000_000:
+            # Conservative: sum of individual allowed cycles, capped at max_period
+            total_computation = max_period * input_dict[max_period_operand]["PC"]
+            union_per_period = min(max_period, sum(v["A"] * (max_period // v["P"]) for v in input_dict.values()))
+            return union_per_period * input_dict[max_period_operand]["PC"]
+
+        indicators: ArrayType = np.zeros((len(input_dict), lcm_period))
         for i, op in enumerate(input_dict):
             # reshape to period of this operand
             indicators_reshape: ArrayType = indicators.reshape((len(input_dict), -1, input_dict[op]["P"]))
             # fill in first few time units as used
             indicators_reshape[i, :, : input_dict[op]["A"]] = 1
 
-        union = max_period - int((~indicators.any(axis=0)).sum())
+        union_in_lcm = lcm_period - int((~indicators.any(axis=0)).sum())
 
-        # Multiply with number of periods of largest period (as it was normalized to largest period)
-        return union * input_dict[max_period_operand]["PC"]
+        # Total computation = max_period * PC_max. Scale union from lcm window to full computation.
+        total_computation = max_period * input_dict[max_period_operand]["PC"]
+        nb_lcm_windows = total_computation // lcm_period
+        return union_in_lcm * nb_lcm_windows
 
     def calc_memory_utilization(self) -> None:
         mem_utilization: MemoryUtilization = {

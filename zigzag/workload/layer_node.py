@@ -68,6 +68,14 @@ class LoopRelevancyInfo:
     def get_r_or_pr_layer_dims(self, layer_operand: LayerOperand) -> list[LayerDim]:
         return self.r_dims[layer_operand] + list(self.pr_dims[layer_operand].keys())
 
+    def get_r_pr_layer_dims(self, layer_operand: LayerOperand) -> list[LayerDim]:
+        pr_dims = self.pr_dims[layer_operand]
+        pr_dims_extracted = []
+        for dim, _ in pr_dims.values():
+            pr_dims_extracted.append(dim)
+        return self.r_dims[layer_operand] + pr_dims_extracted
+            
+        
     def create_pr_decoupled_relevancy_info(self) -> "LoopRelevancyInfo":
         """! remove the pr loop dict, and put the pr-related data dimension (e.g. IX and IY)
         to r and ir dict with "r" and "ir" tags
@@ -199,7 +207,7 @@ class LayerNode(LayerNodeABC):
 
         self.spatial_mapping = mapping_attr.spatial_mapping
         self.spatial_mapping_hint = mapping_attr.spatial_mapping_hint
-        self.memory_operand_links = mapping_attr.memory_operand_links
+        self.memory_operand_links = mapping_attr.memory_operand_links.copy()
 
         self.temporal_ordering = mapping_attr.temporal_ordering
 
@@ -420,6 +428,10 @@ class LayerNode(LayerNodeABC):
     def get_operand_irrelevant_layer_dims(self, layer_op: LayerOperand) -> list[LayerDim]:
         """! Return the irrelevant dimensions of layer operand 'layer_op'."""
         return self.loop_relevancy_info.get_ir_layer_dims(layer_op)
+
+    def get_operand_relevant_or_pr_layer_dims(self, layer_op: LayerOperand) -> list[LayerDim]:
+        """! Return the relevant or partially relevant dimensions of layer operand 'layer_op'."""
+        return self.loop_relevancy_info.get_r_pr_layer_dims(layer_op)
 
     def extract_node_attr(self) -> LayerNodeAttributes:
         """Pack this layer node's attributes in a LayerNodeAttributes instance. Useful for instantiating new layer nodes

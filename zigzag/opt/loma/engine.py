@@ -109,9 +109,10 @@ class LomaEngine:
                 temporal_mapping = allocator.run()  # allocate this ordering to the memories
                 yielded = True
                 yield temporal_mapping
-            except MemoryHierarchyTooSmallException:
+            except MemoryHierarchyTooSmallException as e:
+                # print error message
                 pass
-            except MemoryTooSmallException:
+            except MemoryTooSmallException as e:
                 # Skip the ordering that crashed due to ordering (or spatial unrolling) not fitting in memory
                 pass
             if pbar is not None:

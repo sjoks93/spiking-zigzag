@@ -196,19 +196,23 @@ class SpatialMappingGeneratorStage(Stage):
 
         for mem_level in self.memory_hierarchy.get_inner_memories():
             for mem_op in mem_level.operands:
+                if not self.layer.memory_operand_links.contains_mem_op(mem_op):
+                    continue
                 layer_op = self.layer.memory_operand_links.mem_to_layer_op(mem_op)
                 # Either write BW (to write outputs away) or read BW (to read inputs)
                 data_dir = DataDirection.WR_IN_BY_LOW if layer_op.is_output() else DataDirection.RD_OUT_TO_LOW
                 mem_bandwidth = mem_level.get_max_bandwidth(mem_op, data_dir)
                 # Bit precision of layer operand
                 precision = self.layer.operand_precision[layer_op]
+                relevant_dimensions = self.layer.get_operand_relevant_or_pr_layer_dims(layer_op)
+                print("relevant", relevant_dimensions)
                 irrelevant_dimensions = self.layer.get_operand_irrelevant_layer_dims(layer_op)
-
+                print("irrelevant", irrelevant_dimensions)
                 for oa_dim in mem_level.served_dimensions:
                     # Iterate over all possible LayerDims and rescale max unroll factor
                     for layer_dim, unrolling_size in mapping[oa_dim].items():
                         # If not irrelevant, it is (partially) relevant. Limit based on BW and operand precision.
-                        if layer_dim not in irrelevant_dimensions:
+                        if layer_dim in relevant_dimensions:
                             max_multicast_elements = mem_bandwidth // precision if precision > 0 else unrolling_size
                             if max_multicast_elements < unrolling_size:
                                 conditional_log(
@@ -263,12 +267,14 @@ class SpatialMappingGeneratorStage(Stage):
 
         for mem_level in self.memory_hierarchy.get_inner_memories():
             for mem_op in mem_level.operands:
+                if not self.layer.memory_operand_links.contains_mem_op(mem_op):
+                    continue
                 layer_op = self.layer.memory_operand_links.mem_to_layer_op(mem_op)
                 # Either write BW (to write outputs away) or read BW (to read inputs)
                 mem_capacity = mem_level.memory_instance.size
                 # Bit precision of layer operand
                 precision = self.layer.operand_precision[layer_op]
-                irrelevant_dimensions = self.layer.get_operand_irrelevant_layer_dims(layer_op)
+                relevant_dimensions = self.layer.get_operand_relevant_or_pr_layer_dims(layer_op)                
                 total_unrolling_size = 1
                 relevant_oa_dims_spatial_mapping = SpatialMapping({})
                 non_irrelevant_dimensions: set[LayerDim] = set()
@@ -276,7 +282,7 @@ class SpatialMappingGeneratorStage(Stage):
                     relevant_oa_dims_spatial_mapping[oa_dim] = mapping[oa_dim]
                     # Iterate over all possible LayerDims and rescale max unroll factor
                     for layer_dim, unrolling_size in mapping[oa_dim].items():
-                        if layer_dim not in irrelevant_dimensions:
+                        if layer_dim in relevant_dimensions:
                             non_irrelevant_dimensions.add(layer_dim)
                             total_unrolling_size *= unrolling_size
                 max_stored_elements = mem_capacity / precision if precision > 0 else float("inf")
