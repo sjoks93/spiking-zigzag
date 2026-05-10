@@ -205,9 +205,7 @@ class SpatialMappingGeneratorStage(Stage):
                 # Bit precision of layer operand
                 precision = self.layer.operand_precision[layer_op]
                 relevant_dimensions = self.layer.get_operand_relevant_or_pr_layer_dims(layer_op)
-                print("relevant", relevant_dimensions)
                 irrelevant_dimensions = self.layer.get_operand_irrelevant_layer_dims(layer_op)
-                print("irrelevant", irrelevant_dimensions)
                 for oa_dim in mem_level.served_dimensions:
                     # Iterate over all possible LayerDims and rescale max unroll factor
                     for layer_dim, unrolling_size in mapping[oa_dim].items():
