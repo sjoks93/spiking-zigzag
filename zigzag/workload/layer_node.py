@@ -415,7 +415,12 @@ class LayerNode(LayerNodeABC):
         # each operand's size (Unit: bit)
         operand_size_bit: dict[LayerOperand, int] = {}
         for layer_op, size_in_elem in self.operand_size_elem.items():
-            operand_size_bit[layer_op] = int(size_in_elem * self.operand_precision[layer_op])
+            precision = (
+                self.operand_precision.final_output_precision
+                if layer_op == Constants.OUTPUT_LAYER_OP
+                else self.operand_precision[layer_op]
+            )
+            operand_size_bit[layer_op] = int(size_in_elem * precision)
         self.operand_size_bit = operand_size_bit
 
         # each operand's total data reuse factor, which is total MAC Op/total operand size (in element),

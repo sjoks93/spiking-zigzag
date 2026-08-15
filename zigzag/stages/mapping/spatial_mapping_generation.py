@@ -22,6 +22,7 @@ from zigzag.mapping.spatial_mapping import (
     MappingSingleOADim,
     SpatialMapping,
 )
+from zigzag.opt.loma.engine import NoValidLoopOrderingFoundException
 from zigzag.stages.mapping.spatial_mapping_conversion import (
     SpatialMappingConversionStage,
 )
@@ -52,14 +53,19 @@ class SpatialMappingGeneratorStage(Stage):
         enable_mix_spatial_mapping_generation: bool = False,
         enable_weight_diagonal_mapping: bool = False,
         nb_mappings_generated: int = 3,
+        spatial_mapping_candidate_limit: int | None = None,
         **kwargs: Any,
     ):
         """
         @param enable_mix_spatial_mapping_generation Indicate wether to generate `mixed` spatial mappings i.e. unroll
         multiple LayerDims over same OA Dim
-        @param nb_mappings_generated Maximal number of mappings generated, to limit simulation time
+        @param nb_mappings_generated Maximal number of valid mappings yielded, to limit simulation time
+        @param spatial_mapping_candidate_limit Maximal number of sorted candidate mappings to try while looking for
+        valid mappings. This can be larger than nb_mappings_generated because high-utilization mappings can be invalid
+        for LOMA.
         """
         assert nb_mappings_generated > 0
+        assert spatial_mapping_candidate_limit is None or spatial_mapping_candidate_limit > 0
 
         super().__init__(list_of_callables, **kwargs)
 
@@ -71,6 +77,7 @@ class SpatialMappingGeneratorStage(Stage):
         self.enable_mix_spatial_mapping_generation = enable_mix_spatial_mapping_generation
         self.enable_weight_diagonal_mapping = enable_weight_diagonal_mapping
         self.nb_mappings_generated = nb_mappings_generated
+        self.spatial_mapping_candidate_limit = spatial_mapping_candidate_limit or max(nb_mappings_generated, 16)
 
         self.layer_dim_sizes = self.layer.layer_dim_sizes
         self.oa_dim_sizes = self.accelerator.operational_array.dimension_sizes
@@ -87,6 +94,8 @@ class SpatialMappingGeneratorStage(Stage):
         generated_mappings = list(self.generate_spatial_mappings())
         nb_generated_mappings = len(generated_mappings)
         assert nb_generated_mappings > 0, "No SpatialMappings found"
+        nb_successful_mappings = 0
+        invalid_mapping_messages: list[str] = []
 
         for i, generated_mapping in enumerate(generated_mappings):
             self.layer.spatial_mapping = generated_mapping
@@ -115,10 +124,30 @@ class SpatialMappingGeneratorStage(Stage):
             # Set the generated_mapping in the layer, as this is required by SpatialMappingConversionStage
             self.layer.spatial_mapping = generated_mapping
 
-            for cme, extra_info in spatial_mapping_conversion_stage.run():
-                # recover back the accelerator in case the memory size had been adjusted
-                cme.accelerator = self.accelerator
-                yield cme, (generated_mapping, extra_info)
+            try:
+                mapping_yielded = False
+                for cme, extra_info in spatial_mapping_conversion_stage.run():
+                    mapping_yielded = True
+                    # recover back the accelerator in case the memory size had been adjusted
+                    cme.accelerator = self.accelerator
+                    yield cme, (generated_mapping, extra_info)
+                if mapping_yielded:
+                    nb_successful_mappings += 1
+                    if nb_successful_mappings >= self.nb_mappings_generated:
+                        return
+            except NoValidLoopOrderingFoundException as exc:
+                message = (
+                    f"{self.layer.name}: Skipping spatial mapping {i + 1}/{nb_generated_mappings} "
+                    f"because no valid temporal loop ordering was found: {generated_mapping}."
+                )
+                invalid_mapping_messages.append(f"{message} Original error: {exc}")
+                logger.warning(message)
+
+        if nb_successful_mappings == 0:
+            raise NoValidLoopOrderingFoundException(
+                f"No valid loop ordering was found for any of the {nb_generated_mappings} generated spatial mappings "
+                f"for layer {self.layer}. Invalid mappings: " + " | ".join(invalid_mapping_messages)
+            )
 
     def generate_spatial_mappings(self) -> Generator[SpatialMapping, None, None]:
         """! Generator that yields SpatialMappings
@@ -169,8 +198,8 @@ class SpatialMappingGeneratorStage(Stage):
             reverse=True,
         )
 
-        # Limit the number of mappings generated
-        for i in range(min(self.nb_mappings_generated, len(candidate_mappings))):
+        # Limit the number of candidates tried. The run loop stops once enough valid mappings have yielded.
+        for i in range(min(self.spatial_mapping_candidate_limit, len(candidate_mappings))):
             candidate = candidate_mappings[i]
             if self.enable_weight_diagonal_mapping:
                 candidate = self.add_input_pr_spatial_loop(candidate)
@@ -182,10 +211,10 @@ class SpatialMappingGeneratorStage(Stage):
     ) -> dict[OADimension, dict[LayerDim, int]]:
         """! Scale the given unroll factors such that they do not exceed the bandwidths of the memory structure"""
 
-        def conditional_log(layer_dim: LayerDim, oa_dim: OADimension, value: int, mem_name: str):
+        def conditional_log(layer_dim: LayerDim, oa_dim: OADimension, value: int, mem_name: str, print_log: bool = False) -> None:
             # Don't log if user has defined an unrolling for a different layer dim
             do_not_log = oa_dim in self.provided_mapping and layer_dim not in self.provided_mapping[oa_dim]
-            if not do_not_log:
+            if not do_not_log and print_log:
                 logger.warning(
                     "Maximal spatial unrolling of %s at %s limited to %i due to bandwidth of %s",
                     layer_dim,
